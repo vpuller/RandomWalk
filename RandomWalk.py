@@ -28,10 +28,10 @@ def BrownianWalk(d, N):
     X2 = []
     XX = [tuple(X)]
     for n, i in enumerate(ii):
-        if i % d == 0:
-            X[i//d] += 1
+        if i % 2 == 0:
+            X[i//2] += 1
         else:
-            X[i//d] -= 1
+            X[i//2] -= 1
         X2.append(X.dot(X))
         XX.append(tuple(X))
 
@@ -56,16 +56,15 @@ def SelfAvoidingWalk(d, N):
     while n < N and k < 10*d:
         ii = np.random.randint(0, 2*d, 10**6)
         for i in ii:
-            print(n, i, X0)
             if n >= N:
                 break
             elif k >= 10*d:
                 break
             X1 = np.copy(X0)
-            if i % d == 0:
-                X1[i//d] += 1
+            if i % 2 == 0:
+                X1[i//2] += 1
             else:
-                X1[i//d] -= 1
+                X1[i//2] -= 1
             if tuple(X1) in XX:
                 k += 1
                 continue
@@ -79,6 +78,18 @@ def SelfAvoidingWalk(d, N):
 
     return X2, XX
 
+def padding(XX, N):
+    '''
+    pad sublists shorter than N with zeros and return an array
+    '''
+    YY = []
+    for X in XX:
+        if len(X) < N:
+            YY.append(np.append(np.array(X), np.zeros(N - len(X))))
+        else:
+            YY.append(X)
+    return np.array(YY)
+
 if __name__ == "__main__":
     '''
     Self-avoiding random walk on a square lattice
@@ -88,7 +99,7 @@ if __name__ == "__main__":
 
 
     #simulating diffusion in d dimensions
-    d = 2 #number of dimensions
+    d = 4 #number of dimensions
     N = 10**3 #number of steps
     L = 10**2 #size of the ensemble (number of realizations)
 
@@ -103,46 +114,78 @@ if __name__ == "__main__":
     #     X2.append(X.dot(X))
     #     print(X)
 
-    # XX2 = []
-    # for n in range(L):
-    #     X2, _ = BrownianWalk(d, N)
-    #     XX2.append(X2)
+    # X2, XX = BrownianWalk(d, N)
+    # sys.exit()
 
-    # XX2 = np.array(XX2)
+    XX2 = []
+    YY2 = []
+    dd = [2,3,4,5]
+    for d in dd:
+        XX2_d = []
+        YY2_d = []
+        for n in range(L):
+            X2, _ = BrownianWalk(d, N)
+            XX2_d.append(X2)
+            Y2, _ = SelfAvoidingWalk(d, N)
+            YY2_d.append(Y2)
+        XX2_d = np.array(XX2_d)
+        XX2.append(XX2_d)
+        YY2.append(YY2_d)
 
-    # fig, ax = plt.subplots(1, 1, figsize = (12, 6))
-    # ax.plot(np.arange(N), XX2[:5, :].T, ls = '--')
-    # ax.plot(np.arange(N), XX2.mean(axis=0), label = r'\langle X^2\rangle$')
-    # ax.set_xlabel('n')
-    # ax.set_ylabel(r'$X^2, \langle X^2\rangle$')
-    # plt.savefig('./figs/X2_of_n.jpg')
-    # plt.close()
+    YY2pad = [padding(YY2_d, N) for YY2_d in YY2]
+    Y2_mean = [YY2_d.sum(axis=0)/(YY2_d>0).sum(axis=0) for YY2_d in YY2pad]
 
-    # fig, axs = plt.subplots(1, 2, figsize = (12, 6))
-    # axs[0].plot(np.arange(N), XX2.mean(axis=0), label = r'\langle X^2\rangle$')
-    # axs[0].set_xlabel('n')
-    # axs[0].set_ylabel(r'$\langle X^2\rangle$')
+    fig, axs = plt.subplots(2, 1, figsize = (8, 8))
+    axs[0].plot(np.arange(N), XX2[0][:5, :].T, ls = '--')
+    axs[0].plot(np.arange(N), XX2[0].mean(axis=0), label = r'$\langle X^2\rangle$')
+    axs[0].set_xlabel('n')
+    axs[0].set_ylabel(r'$X^2, \langle X^2\rangle$')
+    axs[0].set_title('Diffusion')
+    axs[0].legend()
 
-    # axs[1].loglog(np.arange(N), XX2.mean(axis=0), label = r'\langle X^2\rangle$')
-    # axs[1].set_xlabel('n')
-    # axs[1].set_ylabel(r'$\langle X^2\rangle$')
-    # plt.savefig('./figs/X2_mean.jpg')
-    # plt.close()
+    for Y2 in YY2[0][:5]:
+        axs[1].plot(np.arange(len(Y2)), Y2, ls = '--')
+    axs[1].plot(np.arange(N), Y2_mean[0], label = r'$\langle X^2\rangle$')
+    axs[1].set_xlabel('n')
+    axs[1].set_ylabel(r'$X^2, \langle X^2\rangle$')
+    axs[1].set_title('Self-avoiding walk')
+    axs[1].legend()
+    plt.savefig('./figs/X2_of_n.jpg')
+    plt.close()
 
-    if d == 2:
-        fig, axs = plt.subplots(1, 2, figsize = (12, 6))
-        X2, XX = BrownianWalk(d, N)
-        for (x1, y1), (x2, y2) in zip(XX[:-1], XX[1:]):
-            axs[0].plot([x1, x2], [y1, y2], color = 'b')
-        axs[0].set_xlabel('x')
-        axs[0].set_ylabel('y')
+    fig, axs = plt.subplots(2, 2, figsize = (8, 8))
+    for d, XX2_d, Y2_mean_d in zip(dd, XX2, Y2_mean):
+        axs[0, 0].plot(np.arange(N), XX2_d.mean(axis=0), label = f'd = {d}')
+        axs[0, 1].loglog(np.arange(N), XX2_d.mean(axis=0), label = f'd = {d}')
+        axs[1, 0].plot(np.arange(N), Y2_mean_d, label = f'd = {d}')
+        axs[1, 1].loglog(np.arange(N), Y2_mean_d, label = f'd = {d}')
+    for ax in axs:
+        ax[0].set_xlabel('n')
+        ax[0].set_ylabel(r'$\langle X^2\rangle$')
+        ax[0].legend()
+        ax[0].set_title('Diffusion')
 
-        X2, XX = SelfAvoidingWalk(d, N)
-        for (x1, y1), (x2, y2) in zip(XX[:-1], XX[1:]):
-            axs[1].plot([x1, x2], [y1, y2], color = 'b')
-        axs[1].set_xlabel('x')
-        axs[1].set_ylabel('y')
-        plt.savefig('./figs/traj.jpg')
-        plt.close()
+        ax[1].set_xlabel('n')
+        ax[1].set_ylabel(r'$\langle X^2\rangle$')
+        ax[1].legend()
+        ax[1].set_title('Self-avoiding walk')
+
+    plt.savefig('./figs/X2_mean.jpg')
+    plt.close()
+
+    fig, axs = plt.subplots(1, 2, figsize = (12, 6))
+    X2, XX = BrownianWalk(2, N)
+    for (x1, y1), (x2, y2) in zip(XX[:-1], XX[1:]):
+        axs[0].plot([x1, x2], [y1, y2], color = 'b')
+    axs[0].set_xlabel('x')
+    axs[0].set_ylabel('y')
+
+    X2, XX = SelfAvoidingWalk(2, N)
+    for (x1, y1), (x2, y2) in zip(XX[:-1], XX[1:]):
+        axs[1].plot([x1, x2], [y1, y2], color = 'b')
+    axs[1].set_xlabel('x')
+    axs[1].set_ylabel('y')
+    plt.savefig('./figs/traj.jpg')
+    plt.close()
 
 
